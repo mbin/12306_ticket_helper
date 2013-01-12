@@ -12,7 +12,7 @@
 // @require			http://lib.sinaapp.com/js/jquery/1.8.3/jquery.min.js
 // @icon			http://www.12306.cn/mormhweb/images/favicon.ico
 // @run-at			document-idle
-// @version 		4.0.2
+// @version 		4.0.6
 // @updateURL		http://www.fishlee.net/Service/Download.ashx/44/47/12306_ticket_helper.user.js
 // @supportURL		http://www.fishlee.net/soft/44/
 // @homepage		http://www.fishlee.net/soft/44/
@@ -22,17 +22,19 @@
 
 //=======START=======
 
-var version = "4.0.2";
+var version = "4.0.6";
 var updates = [
-	"(4.0.1) 解决预定页只能提交一次的限制，出现后台错误时自动刷新预定；其它细节修改；",
 	"<span style='color:red;font-weight:bold;'>全新的自动提交订单功能，允许你在查询界面预先填写验证码并全自动提交</span>",
+	"增加出行模式功能，能快速保存黑白名单及自动预定等设置，快速恢复；",
+	"(4.0.6) 添加部分提交功能，当余票数不足时，自动按顺序部分提交订单",
+	"(4.0.5) 修复当联系人证件号重复时，自动提交无法使用的BUG",
+	"(4.0.5) 增加自动预定模式选择（车次优先还是席别优先）；",
+	"(4.0.5) 修正进入预定页后，再点击余票查询会自动跳回的BUG；",
+	"(4.0.3) 修改有席别优选存在时的优选顺序，调整为先席别再车次优选；",
+	"(4.0.2) 查询界面增加IE登录按钮，修正IE登录相关部分的细节；其它细节修改；",
+	"(4.0.1) 解决预定页只能提交一次的限制，出现后台错误时自动刷新预定；其它细节修改；",
 	"添加车次过滤白名单，在白名单中的车次将不会被过滤",
-	"修改黑名单和自动预定列表为席别优先级一样的选择模式",
-	"修改添加名单逻辑，现在自动预定和黑名单直接点击车次即可，不需要弹出层",
-	"修改席别选择；增加全部席别按钮；当不优选席别时，改为选中所有席别",
 	"重新加入被铁道部移除的上下铺选择下拉框，当然，加着玩儿，有效果更好，没效果……咱大肚能容那啥……",
-	"席别优先选择中加入硬座的无座",
-	"添加对在支付页面点击取消订单后跳回的查询页面的功能支持",
 	"(....and more .....)",
 	"<span style='color:blue;font-weight:bold;'>有童鞋提醒我一周年了……一看记录果然2012年1月9日发布的1.0版……一周年之际发布4.0版，感谢各位的支持和鼓励，希望每一位同学都能顺利地回家，2013都能收获自己想要的，不管是高雅的爱情还是庸俗的钱财 :-)</span>"
 ];
@@ -95,7 +97,7 @@ function injectStyle() {
 tr.steps td{background-color:#E8B7C2!important;-webkit-transition:all linear 0.1s;-moz-transition:all linear 0.1s;}\
 tr.steps span.indicator {display:inline-block!important;}\
 .highlightrow td { background-color:#D0C0ED!important; color:red; }\
-";
+#randCodeTxt{ font-weight: bold; font-size: 18px; text-align: center; padding: 3px 10px 3px 10px; font-family: verdana!important; text-transform: uppercase; }";
 
 	document.head.appendChild(s);
 }
@@ -147,7 +149,7 @@ function injectDom() {
 	html.push('<p style="color: red;"> <strong style="font-size:16px;">啊嘞……看这里！本助手完全免费啊诸位大人！</strong>任何在第三方网站上出售的软件全他喵的是侵权出售啊！！看到的时候请亲务必记得退款退货打差评向青天大老爷举报啊！！</p>');
 	html.push('<p style="color:purple;"> 回家是一个单纯而简单的心愿，希望我们不会变得太复杂……</p>');
 	html.push('<p> 有很多朋友资助作者，正在木有暖气的南方饱受煎熬的作者感激涕零 ≥ω≤。<a href="http://www.fishlee.net/soft/44/donate.html" target="_blank">戳这里了解捐助详情</a>。 </p>');
-	html.push('<p style="color: blue;"> 喔对了，任何对本助手修改后的版本，希望IT同仁们自己使用就好，不要传播，知道你们很鄙视注册，老衲也很鄙视的说，但是……有什么方法能阻止地球人趁火打劫呢……连贫僧都不忍心拿来卖钱的说  ╮(╯▽╰)╭  </p>');
+	html.push('<p style="color: blue;"> <strong style="font-size:16px;">那个，诸位票贩子们，放过本助手吧！！不要害作者啊！！！你们都去用什么自动识别验证码的好啦！离贫道远点！！</strong>  ╮(╯▽╰)╭  </p>');
 	html.push('<p style="font-weight:bold;">当前版本更新内容</p>');
 	html.push('<ol>');
 	$.each(utility.getPref("updates").split('\t'), function (i, n) {
@@ -320,6 +322,7 @@ var utility = {
 				return result;
 			}
 		});
+		(function (n) { var t = /["\\\x00-\x1f\x7f-\x9f]/g, i = { "\b": "\\b", "\t": "\\t", "\n": "\\n", "\f": "\\f", "\r": "\\r", '"': '\\"', "\\": "\\\\" }, r = Object.prototype.hasOwnProperty; n.toJSON = typeof JSON == "object" && JSON.stringify ? JSON.stringify : function (t) { var i, a, l, v, p, y, f; if (t === null) return "null"; if (i = typeof t, i === "undefined") return undefined; if (i === "number" || i === "boolean") return "" + t; if (i === "string") return n.quoteString(t); if (i === "object") { if (typeof t.toJSON == "function") return n.toJSON(t.toJSON()); if (t.constructor === Date) { var e = t.getUTCMonth() + 1, o = t.getUTCDate(), w = t.getUTCFullYear(), s = t.getUTCHours(), h = t.getUTCMinutes(), c = t.getUTCSeconds(), u = t.getUTCMilliseconds(); return e < 10 && (e = "0" + e), o < 10 && (o = "0" + o), s < 10 && (s = "0" + s), h < 10 && (h = "0" + h), c < 10 && (c = "0" + c), u < 100 && (u = "0" + u), u < 10 && (u = "0" + u), '"' + w + "-" + e + "-" + o + "T" + s + ":" + h + ":" + c + "." + u + 'Z"' } if (t.constructor === Array) { for (a = [], l = 0; l < t.length; l++) a.push(n.toJSON(t[l]) || "null"); return "[" + a.join(",") + "]" } y = []; for (f in t) if (r.call(t, f)) { if (i = typeof f, i === "number") v = '"' + f + '"'; else if (i === "string") v = n.quoteString(f); else continue; (i = typeof t[f], i !== "function" && i !== "undefined") && (p = n.toJSON(t[f]), y.push(v + ":" + p)) } return "{" + y.join(",") + "}" } }, n.evalJSON = typeof JSON == "object" && JSON.parse ? JSON.parse : function (src) { return eval("(" + src + ")") }, n.secureEvalJSON = typeof JSON == "object" && JSON.parse ? JSON.parse : function (src) { var filtered = src.replace(/\\["\\\/bfnrtu]/g, "@").replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, "]").replace(/(?:^|:|,)(?:\s*\[)+/g, ""); if (/^[\],:{}\s]*$/.test(filtered)) return eval("(" + src + ")"); throw new SyntaxError("Error parsing JSON, source is not valid."); }, n.quoteString = function (n) { return n.match(t) ? '"' + n.replace(t, function (n) { var t = i[n]; return typeof t == "string" ? t : (t = n.charCodeAt(), "\\u00" + Math.floor(t / 16).toString(16) + (t % 16).toString(16)) }) + '"' : '"' + n + '"' } })(jQuery)
 	},
 	runningQueue: null,
 	appendLog: function (settings) {
@@ -871,19 +874,10 @@ var utility = {
 
 		return data;
 	},
-	appendScript: function (url, content, callback) {
-		var s = document.createElement('script');
-		if (url) s.src = 'https://github.com/iccfish/12306_ticket_helper/raw/master/version.js';
-		if (content) s.textContent = content;
-		s.type = 'text/javascript';
-		if (callback) s.addEventListener('load', callback);
-
-		document.head.appendChild(s);
-	},
 	selectionArea: function (opt) {
 		var self = this;
 		this.options = $.extend({ onAdd: function () { }, onRemove: function () { }, onClear: function () { }, onRemoveConfirm: function () { return true; }, syncToStorageKey: "", defaultList: null, preloadList: null }, opt);
-		this.append('<span style="padding: 5px; border: 1px dashed gray; display:inline-block; background-color: rgb(238, 238, 238); ">(还没有添加任何项)</span>');
+		this.append('<div style="padding: 5px; border: 1px dashed gray; background-color: rgb(238, 238, 238); width:120px;">(还没有添加任何项)</div>');
 		this.datalist = [];
 
 		this.add = function (data) {
@@ -945,9 +939,9 @@ var utility = {
 
 		this.checkEmpty = function () {
 			if (self.find("input").length) {
-				self.find("span").hide();
+				self.find("div").hide();
 			} else {
-				self.find("span").show();
+				self.find("div").show();
 			}
 		};
 
@@ -1276,7 +1270,7 @@ function injectMainPageFunction() {
 
 	window.resubmitForm = function () {
 		var form = $("#orderForm");
-		if (form.length == 0) return;
+		if (form.length == 0 || form.attr("success") != "0") return;
 
 		utility.notify("页面出错了！正在重新预定！");
 		setTimeout(function () { document.getElementById("orderForm").submit(); }, 3000);
@@ -1526,6 +1520,7 @@ function initAutoCommitOrder() {
 	var lastform = null;
 	if (parent) {
 		lastform = parent.$("#orderForm");
+		lastform.attr("success", "1");
 	}
 
 	//进度提示框
@@ -2176,33 +2171,67 @@ function initTicketQuery() {
 				};
 			} else {
 				console.log("按席别优先选择-车次过滤");
-				var trains = $("#gridbox tr[result=2]");
+				var trains = $.makeArray($("#gridbox tr[result=2]"));
+
 				var trainfiltered = [];
-				trains.each(function () {
-					var self = $(this);
-					if (list_autoorder.isInRegList(self.attr("tcode"))) trainfiltered.push(self);
-				});
-				//gridbox
-				$.each(seatLevelOrder, function () {
-					var scode = this;
-					for (var i in trainfiltered) {
-						var t = trainfiltered[i];
-						if (t.find("td[scode=" + this + "][result=2]").length) {
-							var tcode = scode == "empty" ? "1" : scode;
+				for (var idx in list_autoorder.datalist) {
+					//对车次进行过滤并按优先级排序
+					var rule = list_autoorder.datalist[idx];
+					var ruleTester = utility.getRegCache(rule);
+					for (var i = trains.length - 1; i >= 0; i--) {
+						var self = $(trains[i]);
+						var code = self.attr("tcode");
 
-							window.localStorage.setItem("autoSelect_preSelectSeatType", tcode);
-							$("#preSelectSeat").val(tcode)
-
-							if (document.getElementById("autoBookTip").checked) {
-								window.localStorage["bookTip"] = 1;
-							}
-							t.find(orderButtonClass).click();
-
-							return false;
+						if (ruleTester.test(code)) {
+							trainfiltered.push(self);
+							trains.splice(i, 1);
 						}
 					}
-					return true;
-				});
+				}
+				if (document.getElementById("autoorder_method").selectedIndex == 0) {
+					$.each(seatLevelOrder, function () {
+						var scode = this;
+						for (var i in trainfiltered) {
+							var t = trainfiltered[i];
+							if (t.find("td[scode=" + this + "][result=2]").length) {
+								var tcode = scode == "empty" ? "1" : scode;
+
+								window.localStorage.setItem("autoSelect_preSelectSeatType", tcode);
+								$("#preSelectSeat").val(tcode)
+
+								if (document.getElementById("autoBookTip").checked) {
+									window.localStorage["bookTip"] = 1;
+								}
+								t.find(orderButtonClass).click();
+
+								return false;
+							}
+						}
+						return true;
+					});
+				} else {
+					//车次优先
+					$.each(trainfiltered, function () {
+						var t = this;
+						for (var i in seatLevelOrder) {
+							var scode = seatLevelOrder[i];
+							if (t.find("td[scode=" + scode + "][result=2]").length) {
+								var tcode = scode == "empty" ? "1" : scode;
+
+								window.localStorage.setItem("autoSelect_preSelectSeatType", tcode);
+								$("#preSelectSeat").val(tcode)
+
+								if (document.getElementById("autoBookTip").checked) {
+									window.localStorage["bookTip"] = 1;
+								}
+								t.find(orderButtonClass).click();
+
+								return false;
+							}
+						}
+						return true;
+					});
+				}
 			}
 		}
 
@@ -2218,7 +2247,7 @@ function initTicketQuery() {
 	$("#orderForm").submit(function () {
 		if ($("#chkAutoResumitOrder")[0].checked) {
 			parent.$("#orderForm").remove();
-			parent.$("body").append($("#orderForm").clone(false).attr("target", "main"));
+			parent.$("body").append($("#orderForm").clone(false).attr("target", "main").attr("success", "0"));
 		}
 	});
 	$("body").ajaxComplete(function (e, r, s) {
@@ -2432,13 +2461,14 @@ function initTicketQuery() {
 <tr class='fish_sep'><td colspan='4' id='blackListTd'></td></tr>\
 <tr class='caption autoorder_steps fish_sep'><td colspan='3'><span class='hide indicator'>① </span>自动添加乘客 （加入此列表的乘客将会自动在提交订单的页面中添加上，<strong>最多选五位</strong>）</td><td><input type='button' class='fish_button' onclick=\"self.location='/otsweb/passengerAction.do?method=initAddPassenger&';\" value='添加联系人' /> (提示：新加的联系人五分钟之内无法订票)</td></tr>\
 <tr class='fish_sep'><td id='passengerList' colspan='4'><span style='color:gray; font-style:italic;'>联系人列表正在加载中，请稍等...如果长时间无法加载成功，请尝试刷新页面  x_x</span></td></tr>\
+<tr class='fish_sep autoordertip' style='display:none;'><td class='name'>部分提交订单</td><td colspan='3'><label><input type='checkbox' id='autoorder_part' /> 当票数不足时，允许为部分的联系人先提交订单</label></td></tr>\
 <tr class='fish_sep autoorder_steps caption'><td><span class='hide indicator'>② </span>席别优先选择</td><td><input type='hidden' id='preSelectSeat' /><select id='preSelectSeatList'></select> (选中添加，点击按钮删除；<a href='http://www.fishlee.net/soft/44/tour.html' target='_blank'>更多帮助</a>)</td><td style='text-align:right;'>卧铺优选</td><td><select id='preselectseatlevel'></select>(不一定有用的啦……呵呵呵呵呵呵……)</td></tr>\
-<tr class='fish_sep'><td colspan='4' id='preseatlist'><span id='preseatlist_empty' style='padding:5px; border: 1px dashed gray; background-color:#eee;display:inline-block;'>(尚未指定，请从上面的下拉框中选定)</span></td></tr>\
-<tr class='fish_sep autoorder_steps caption'><td><label><input type='checkbox' id='swAutoBook' name='swAutoBook' checked='checked' /><span class='hide indicator'>③</span> 自动预定</label></td><td colspan='2' style='font-weight:normal;'>如果启用，符合规则的车次的特定席别有效时，将会进入预定页面</td><td style='text-align:rigth;'><button id='btnAddAutoBook' class='fish_button'>添加</button><button id='btnClearAutoBook' class='fish_button'>清空</button></td></tr>\
+<tr class='fish_sep'><td colspan='4' id='preseatlist'><div id='preseatlist_empty' style='padding:5px; border: 1px dashed gray; background-color:#eee;width:200px;'>(尚未指定，请从上面的下拉框中选定)</div></td></tr>\
+<tr class='fish_sep autoorder_steps caption'><td><label><input type='checkbox' id='swAutoBook' name='swAutoBook' checked='checked' /><span class='hide indicator'>③</span> 自动预定</label></td><td colspan='2' style='font-weight:normal;'><select id='autoorder_method'><option value='0'>席别优先</option><option value='1'>车次优先</option></select>如果启用，符合规则的车次的特定席别有效时，将会进入预定页面</td><td style='text-align:rigth;'><button id='btnAddAutoBook' class='fish_button'>添加</button><button id='btnClearAutoBook' class='fish_button'>清空</button></td></tr>\
 <tr class='fish_sep'><td colspan='4' id='autobookListTd'></td></tr>\
 <tr class='fish_sep'><td colspan='4'><label><input type='checkbox' id='autoBookTip' checked='checked' /> 如果自动预定成功，进入预定页面后播放提示音乐并弹窗提示</label></td></tr>\
 <tr class='caption autoorder_steps fish_sep highlightrow'><td class='name autoordertd'><label style='display:none;color:red;'><input type='checkbox' id='autoorder'/>自动提交订单</label></td><td class='autoordertd' colspan='3'><p style='display:none;'><img id='randCode' src='https://dynamic.12306.cn/otsweb/passCodeAction.do?rand=randp' /> <input size='4' maxlength='4' type='text' id='randCodeTxt' /> (验证码可在放票前填写，临近放票时建议点击图片刷新并重新填写，以策安全。请务必控制好阁下的眼神……)</p></td></tr>\
-<tr style='display:none;' id='autoordertip' class='fish_sep'><td class='name' style='color:red;'>警告</td><td colspan='3' style='color:darkblue;'>\
+<tr style='display:none;' class='autoordertip fish_sep'><td class='name' style='color:red;'>警告</td><td colspan='3' style='color:darkblue;'>\
 <p style='font-weight:bold; color:purple;'>自动提交订单使用流程：勾选要订票的联系人 -&gt; 设置需要的席别 -&gt; 将你需要订票的车次按优先级别加入自动预定列表 -&gt; 勾选自动提交订单 -&gt; 输入验证码 -&gt; 开始查票。信息填写不完整将会导致助手忽略自动提交订单，请务必注意。进入自动订票模式后，席别选择和自动预定都将被锁定而无法手动切换。如果查询的是学生票，那么提交的将会是学生票订单。<u style='color:red;'>一切都设置完成后，请点击查询开始查票。一旦有票将会自动提交。</u></p>\
 <p>1. 自动提交订单使用的是自动预定的列表顺序，取第一个有效的车次自动提交订单！请确认设置正确！！</p>\
 <p>2. 自动提交的席别和联系人请在上方选择，和预设的是一致的，暂不支持不同的联系人选择不同的席别；</p>\
@@ -2448,6 +2478,9 @@ function initTicketQuery() {
 <p style='font-size:16px; font-weight:bold;color:blue;'>一定要仔细看说明啊！切记多个浏览器准备不要老想着一棵树上吊死啊！千万不要因为自动提交订单导致你订不到票啊！！这样老衲会内疚的啊！！！！</p>\
 </td></tr>";
 		$("#helpertooltable tr:first").addClass("fish_sep").before(html);
+
+		//优选逻辑
+		$("#autoorder_method").val(window.localStorage["autoorder_method"] || "0").change(function () { window.localStorage.setItem("autoorder_method", $(this).val()); });
 
 		//自动预定列表
 		list_autoorder = utility.selectionArea.call($("#autobookListTd"), { syncToStorageKey: "list_autoBookList" });
@@ -2584,13 +2617,13 @@ function initTicketQuery() {
 			}
 			document.getElementById("swAutoBook").disabled = this.checked;
 			if (this.checked) {
-				$("#autoordertip").show();
+				$(".autoordertip").show();
 				$(":checkbox[name=seatoption]").attr("disabled", true);
 				refreshSeatTypeOrder();
 				$("tr.autoorder_steps").addClass("steps");
 			}
 			else {
-				$("#autoordertip").hide();
+				$(".autoordertip").hide();
 				document.getElementById("swAutoBook").checked = pre_autoorder_book_status;
 				$(":checkbox[name=seatoption]").attr("disabled", false);
 				$("tr.autoorder_steps").removeClass("steps");
@@ -2603,9 +2636,11 @@ function initTicketQuery() {
 		utility.getAllPassengers(function (list) {
 			var h = [];
 			var check = (localStorage.getItem("preSelectPassenger") || "").split('|');
+			var index = 0;
 			$.each(list, function () {
 				var value = this.passenger_name + this.passenger_id_type_code + this.passenger_id_no;
-				h.push("<label style='margin-right:10px;'><input type='checkbox' id='preSelectPassenger" + this.passenger_id_no + "' name='preSelectPassenger'" + ($.inArray(value, check) > -1 ? " checked='checked'" : "") + " value='" + value + "' />" + this.passenger_name + "</label>");
+				this.index = index++;
+				h.push("<label style='margin-right:10px;'><input type='checkbox' id='preSelectPassenger" + this.index + "' name='preSelectPassenger'" + ($.inArray(value, check) > -1 ? " checked='checked'" : "") + " value='" + value + "' />" + this.passenger_name + "</label>");
 			});
 
 			$("#passengerList").html(h.join("")).find("input").change(function () {
@@ -2620,7 +2655,7 @@ function initTicketQuery() {
 				localStorage.setItem("preSelectPassenger", user.join("|"));
 			});
 			$.each(list, function () {
-				$("#preSelectPassenger" + this.passenger_id_no).data('pasinfo', this);
+				$("#preSelectPassenger" + this.index).data('pasinfo', this);
 			});
 			$("#ticketLimition").val($("#passengerList :checkbox:checked").length);
 		});
@@ -2667,7 +2702,7 @@ function initTicketQuery() {
 		//注册检测函数
 		checkTicketCellsQueue.push(function (i, e, prevValue) {
 			var limit = parseInt(dom.value);
-			if (!prevValue || !(limit > 0)) return null;
+			if (!prevValue || !(limit > 0) || $("#autoorder_part:visible:checked").length) return null;
 
 			var text = $.trim(e.text());
 			if (text == "有") return 2;
@@ -2799,6 +2834,149 @@ function initTicketQuery() {
 
 	//#endregion
 
+
+	//#region 车票模式配置
+
+	(function () {
+		$("#helpertooltable tr:first").before("<tr class='fish_sep caption'><td class='name' colspan='4'>出行模式</td></tr>\
+<tr class='fish_sep'><td colspan='2'><select id='profilelist'><option value=''>===选择一个出行模式===</option></select><button id='profile_save' class='fish_button'>保存</button><button id='profile_add' class='fish_button'>另存</button><button id='profile_delete' class='fish_button'>删除</button><button id='profile_reset' class='fish_button'>重置所有选项</button></td><td colspan='2'>出行模式可以帮你快速的保存一系列设置，如联系人、车次、席别、黑名单和白名单</td>\
+</tr>\
+");
+		var list = (window.localStorage["profilelist"] || "").split("\t");
+		var listDom = $("#profilelist");
+		var listEle = listDom[0];
+
+		if (list[0] == "") list.splice(0, 1);
+
+		$.each(list, function () {
+			listEle.options[listEle.options.length] = new Option(this + '', this + '');
+		});
+
+		listDom.change(function () {
+			var value = listDom.val();
+			if (!value) return;
+
+			applyProfile(loadProfile(value));
+		});
+		$("#profile_save").click(function () {
+			if (!listDom.val()) $("#profile_add").click();
+			else {
+				saveProfile(listDom.val(), generateProfile());
+				alert("存档已经更新~");
+			}
+		});
+		$("#profile_add").click(function () {
+			var data = generateProfile();
+			var name = prompt("请输入出行模式的名称，如『出去鬼混』神马的……", "嗷嗷回家~");
+
+			if (!name) return;
+			name = name.replace(/\s+/g, "");
+			if (window.localStorage.getItem("profile_" + name)) {
+				alert("啊嘞？这个名字的已经有了喔，重试呗~");
+			} else {
+				saveProfile(name, data);
+				list.push(name);
+				listEle.options[listEle.options.length] = new Option(name, name);
+				window.localStorage.setItem("profilelist", list.join("\t"));
+				alert("已保存唷。");
+			}
+		});
+		$("#profile_delete").click(function () {
+			var idx = listEle.selectedIndex;
+			if (!idx || !confirm("亲，确定要下此狠手咩？")) return;
+
+			listEle.options[idx] = null;
+			window.localStorage.removeItem("profile_" + list[idx - 1]);
+			list.splice(idx - 1, 1);
+			window.localStorage.setItem("profilelist", list.join("\t"));
+			alert("乃伊佐特~");
+		});
+		$("#profile_reset").click(function () {
+			listDom.val("");
+			applyProfile({ "blackListEnabled": true, "whiteListEnabled": true, "autoBookListEnabled": true, "seatOrder": [], "prePassenger": [], "whiteList": [], "blackList": [], "autoBookList": [], "autoBookMethod": "1" });
+		});
+
+		function loadProfile(name) {
+			return $.parseJSON(window.localStorage.getItem("profile_" + name));
+		}
+
+		function saveProfile(name, profile) {
+			if (!profile) window.localStorage.removeItem(name);
+			else window.localStorage.setItem("profile_" + name, $.toJSON(profile));
+		}
+
+		function generateProfile() {
+			var pro = {};
+			pro.blackListEnabled = document.getElementById("swBlackList").checked;
+			pro.whiteListEnabled = document.getElementById("swWhiteList").checked;
+			pro.autoBookListEnabled = document.getElementById("swAutoBook").checked;
+			pro.seatOrder = seatLevelOrder;
+			pro.prePassenger = $.map($("input:checkbox[name=preSelectPassenger]:checked"), function (e) {
+				var data = $(e).data("pasinfo");
+				return { type: data.passenger_type, idtype: data.passenger_id_type_code, id: data.passenger_id_no };
+			});;
+			pro.whiteList = list_whitelist.datalist;
+			pro.blackList = list_blacklist.datalist;
+			pro.autoBookList = list_autoorder.datalist;
+			pro.autoBookMethod = $("#autoorder_method").val();
+			pro.queryInfo = $("#querySingleForm").serializeArray();
+
+			return pro;
+		}
+
+		function applyProfile(pro) {
+			$("#swBlackList").attr("checked", pro.blackListEnabled).change();
+			$("#swWhiteList").attr("checked", pro.whiteListEnabled).change();
+			$("#swAutoBook").attr("checked", pro.autoBookListEnabled).change();
+			//清除席别优选
+			$("#preseatlist input").click();
+			var seatList = $("#preSelectSeatList");
+			$.each(pro.seatOrder, function () {
+				seatList.val(this + '').change();
+			});
+			//黑名单白名单神马的。
+			list_whitelist.emptyList();
+			$.each(pro.whiteList, function () { list_whitelist.add(this + ''); });
+			list_blacklist.emptyList();
+			$.each(pro.blackList, function () { list_blacklist.add(this + ''); });
+			list_autoorder.emptyList();
+			$.each(pro.autoBookList, function () { list_autoorder.add(this + ''); });
+
+			//联系人
+			var plist = $("input:checkbox[name=preSelectPassenger]");
+			plist.attr("checked", false);
+			$.each(pro.prePassenger, function () {
+				var p = this;
+				plist.each(function () {
+					var data = $(this).data("pasinfo");
+					if (data.passenger_type == p.type && data.passenger_id_type_code == p.idtype && data.passenger_id_no == p.id) {
+						this.checked = true;
+						return false;
+					}
+					return true;
+				});
+			});
+			plist.change();
+
+			//优选方式
+			$("#autoorder_method").val(pro.autoBookMethod).change();
+
+			//查询方式
+			if (pro.queryInfo) {
+				$.each(pro.queryInfo, function () {
+					if (this.name.indexOf("orderRequest.") == -1) return;
+					$("input[name=" + this.name + "]").val(this.value).change();
+				});
+			}
+
+			utility.notifyOnTop("已加载出行模式");
+		}
+
+	})();
+
+
+	//#endregion
+
 	utility.reloadPrefs($("tr.append_row"), "ticket_query");
 	//完成初始化
 	initialized = true;
@@ -2883,6 +3061,16 @@ function initDirectSubmitOrder() {
 		showStatus();
 		utility.notifyOnTop("开始自动提交预定订单！");
 		setCurOperationInfo(true, "正在自动提交订单");
+
+		//确定乘客
+		var tcode = $("#station_train_code").val();
+		var seatCode = $("#preSelectSeat").val();
+		var count = parseInt($.trim($("#gridbox tr[tcode=" + tcode + "] td[scode=" + seatCode + "]").text()));
+		var pases = $("input:checkbox[name=preSelectPassenger]:checked");
+		console.log("欲购票数=" + pases.length + "，实际票数=" + count + " (isNaN 为很多 =。=)");
+		if (!isNaN(count) && count < pases.length) {
+			$("input:checkbox[name=preSelectPassenger]:checked:gt(" + (count - 1) + ")").attr("checked", false).change();
+		}
 
 		var form = $(this);
 		utility.post(form.attr("action"), form.serialize(), "text", function (html) {
@@ -3046,7 +3234,7 @@ function initDirectSubmitOrder() {
 	}, 30 * 1000);
 
 	//最后显示界面，防止初始化失败却显示了界面
-	$("td.autoordertd *").show();
+	$("tr.autoordertd, td.autoordertd *").show();
 }
 
 //#endregion

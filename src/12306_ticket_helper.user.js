@@ -3638,18 +3638,21 @@ function initLogin() {
 	//插入登录标记
 	var form = $("#loginForm");
 	var trs = form.find("tr");
-	trs.eq(1).find("td:last").html('<label><input type="checkbox" id="keepInfo" /> 记录密码</label>');
+	trs.eq(1).find("td:last").html('<label><input type="checkbox" id="keepInfo" /> 记录用户名</label>');
 	$("#loginForm td:last").html('<label><input type="checkbox" checked="checked" id="autoLogin" name="autoLogin" /> 自动登录</label>');
 	utility.reloadPrefs($("#loginForm td:last"));
 	$("#keepInfo").change(function () {
 		if (!this.checked) {
 			if (localStorage.getItem("__un") != null) {
 				localStorage.removeItem("__un");
-				localStorage.removeItem("__up");
-				alert("保存的密码已经删除！");
+				alert("保存的用户名已经删除！");
 			}
 		}
 	});
+	if (localStorage["__up"]) {
+		alert("亲，因为那啥登录的不是难事鸟，so为了避免您的密码泄漏，俺隆重嘀删除了已经记录的密码鸟，从此只记录你的名字鸟~\n\n上天保佑你没有忘记密码……");
+		localStorage.removeItem("__up");
+	}
 	//注册判断
 	form.submit(function () {
 		utility.setPref("_sessionuser", $("#UserName").val());
@@ -3719,7 +3722,6 @@ function initLogin() {
 
 		if ($("#keepInfo")[0].checked) {
 			utility.setPref("__un", data["loginUser.user_name"]);
-			utility.setPref("__up", data["user.password"])
 		}
 		setCurOperationInfo(true, "正在登录中……");
 		$.ajax({
@@ -3799,11 +3801,8 @@ function initLogin() {
 	}
 
 	var kun = utility.getPref("__un");
-	var kup = utility.getPref("__up");
-	if (kun && kup) {
+	if (kun) {
 		$("#UserName").val(kun);
-		$("#password").val(kup);
-		$("#randCode")[0].focus();
 	}
 	$("#randCode").keyup(function (e) {
 		if (!$("#autoLogin")[0].checked) return;
